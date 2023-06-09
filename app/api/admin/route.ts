@@ -51,7 +51,7 @@ export async function POST(req: Request) {
           log.info(`Updating product ${dbProduct.id}`, { requestId: requestId, product: dbProduct.id });
           // product does not exist, delete it
 
-          const updateRes = await supabase.from('products').update({ active: false }).eq('id', dbProduct.id);
+          const updateRes = await supabase.from('public.products').update({ active: false }).eq('id', dbProduct.id);
 
           if (updateRes.error != null) {
             log.error(`Error updating product.`, {
