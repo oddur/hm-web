@@ -39,11 +39,11 @@ export async function POST(req: Request) {
       }
 
       for (const dbProduct of dbProducts.data) {
-        const stripeProduct = await stripe.products.retrieve(dbProduct.id);
-        if (stripeProduct == null) {
+        // check if the dbProduct exists in Stripe
+        if (listAllProducts.data.find(p => p.id == dbProduct.id) == null) {
           log.info(`Deleting product ${dbProduct.id}`);
           // product does not exist, delete it
-          await supabase.from('products').delete().eq('stripe_id', dbProduct.id);
+          await supabase.from('products').delete().eq('id', dbProduct.id);
         }
       }
     }
