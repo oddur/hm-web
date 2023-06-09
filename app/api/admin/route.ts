@@ -17,7 +17,8 @@ export async function POST(req: Request) {
 
   switch (action) {
     case 'stripe-sync-products': {
-
+      let products_updates = 0;
+      let products_deletes = 0;
       log.info('Admin API: Syncing Stripe Products');
       const listAllProducts = await stripe.products.list();
       if (listAllProducts.lastResponse.statusCode != 200) {
@@ -30,6 +31,7 @@ export async function POST(req: Request) {
         log.info(`Upserting product ${product.id}`);
         // product does not exist, create it
         await upsertProductRecord(product);
+        products_updates++;
       }
 
       const dbProducts = await supabase.from('products').select('*');
@@ -44,8 +46,13 @@ export async function POST(req: Request) {
           log.info(`Deleting product ${dbProduct.id}`);
           // product does not exist, delete it
           await supabase.from('products').delete().eq('id', dbProduct.id);
+          products_deletes++;
         }
       }
+      return new Response(JSON.stringify({ products_updates, products_deletes }), {status: 200});
     }
   }
+
+  return new Response(JSON.stringify({ "error": "unknown action" }), {status: 500});
+
 }
