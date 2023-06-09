@@ -22,32 +22,43 @@ export async function POST(req: Request) {
       let products_updates = 0;
       let products_deletes = 0;
       log.info('Admin API: Syncing Stripe Products', { requestId: requestId });
-      const listAllProducts = await stripe.products.list();
-      if (listAllProducts.lastResponse.statusCode != 200) {
-        log.error(`Error fetching products from Stripe.`, { statusCode: listAllProducts.lastResponse.statusCode, requestId: requestId });
+      const allStripeProducts = await stripe.products.list();
+      if (allStripeProducts.lastResponse.statusCode != 200) {
+        log.error(`Error fetching products from Stripe.`, { statusCode: allStripeProducts.lastResponse.statusCode, requestId: requestId });
         throw new Error("Error fetching products from Stripe.");
       }
 
       // iterate over the product
-      for (const product of listAllProducts.data) {
+      for (const product of allStripeProducts.data) {
         log.info(`Upserting product ${product.id}`, { requestId: requestId, product: product.id  });
         // product does not exist, create it
         await upsertProductRecord(product);
         products_updates++;
       }
 
-      const dbProducts = await supabase.from('products').select('*');
-      if (dbProducts.error != null) {
-        log.error(`Error fetching products from database`, { error: dbProducts.error, requestId: requestId });
+      const allActiveDbProducts = await supabase.from('products').select('*').eq('active', true);
+      if (allActiveDbProducts.error != null) {
+        log.error(`Error fetching products from database`, { error: allActiveDbProducts.error, requestId: requestId });
         throw new Error("Error fetching products from database.")
       }
 
-      for (const dbProduct of dbProducts.data) {
+      for (const dbProduct of allActiveDbProducts.data) {
         // check if the dbProduct exists in Stripe
-        if (listAllProducts.data.find(p => p.id == dbProduct.id) == null) {
-          log.info(`Deleting product ${dbProduct.id}`, { requestId: requestId, product: dbProduct.id});
+        if (allStripeProducts.data.find(p => p.id == dbProduct.id) == null) {
+          log.info(`Updating product ${dbProduct.id}`, { requestId: requestId, product: dbProduct.id});
           // product does not exist, delete it
+          const updateRes = await supabase.from('products').update({active: false}).eq('id', dbProduct.id);
+          if (updateRes.error != null) {
+            log.error(`Error updating product.`, {
+              productId: dbProduct.id,
+              error: updateRes.error,
+              statusText: updateRes.statusText,
+              requestId: requestId,
+            });
+            throw new Error("Error updating product.");
+          }
 
+          /*
           const prices_deletion = await supabase.from('prices').delete().eq('product_id', dbProduct.id);
           if (prices_deletion.error != null) {
             log.error(`Error deleting prices.`, {
@@ -70,6 +81,8 @@ export async function POST(req: Request) {
             });
             throw new Error("Error deleting product.");
           }
+
+           */
           products_deletes++;
         }
       }
