@@ -1,10 +1,9 @@
-import { cookies } from 'next/headers';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { stripe } from '@/utils/stripe';
 import { upsertProductRecord } from '@/utils/supabase-admin';
 import { Database } from '@/types_db';
 import { log } from 'next-axiom';
 import { v4 as uuidv4 } from 'uuid';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(req: Request) {
 
@@ -13,7 +12,10 @@ export async function POST(req: Request) {
 
   const body = await req.text();
   const action = JSON.parse(body).action;
-  const supabase = createRouteHandlerClient<Database>({ cookies });
+  const supabase = createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  );
 
   log.info('Admin API called.', { action: action, requestId: requestId });
 
@@ -66,7 +68,13 @@ export async function POST(req: Request) {
           if (updateRes.count == 0) {
             log.error(`No rows updated.`, { requestId: requestId, productId: dbProduct.id });
           }
-          log.info(`Updated product ${dbProduct.id}`, { requestId: requestId, product: dbProduct.id, rows_updated: updateRes.count, status: updateRes.status })
+          log.info(`Updated product ${dbProduct.id}`, {
+            requestId: requestId,
+            product: dbProduct.id,
+            rows_updated: updateRes.count,
+            status: updateRes.status,
+            data: updateRes.data
+          });
 
           /*
           const prices_deletion = await supabase.from('prices').delete().eq('product_id', dbProduct.id);
