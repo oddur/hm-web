@@ -24,13 +24,16 @@ export async function POST(req: Request) {
       log.info('Admin API: Syncing Stripe Products', { requestId: requestId });
       const allStripeProducts = await stripe.products.list();
       if (allStripeProducts.lastResponse.statusCode != 200) {
-        log.error(`Error fetching products from Stripe.`, { statusCode: allStripeProducts.lastResponse.statusCode, requestId: requestId });
-        throw new Error("Error fetching products from Stripe.");
+        log.error(`Error fetching products from Stripe.`, {
+          statusCode: allStripeProducts.lastResponse.statusCode,
+          requestId: requestId
+        });
+        throw new Error('Error fetching products from Stripe.');
       }
 
       // iterate over the product
       for (const product of allStripeProducts.data) {
-        log.info(`Upserting product ${product.id}`, { requestId: requestId, product: product.id  });
+        log.info(`Upserting product ${product.id}`, { requestId: requestId, product: product.id });
         // product does not exist, create it
         await upsertProductRecord(product);
         products_updates++;
@@ -39,23 +42,29 @@ export async function POST(req: Request) {
       const allActiveDbProducts = await supabase.from('products').select('*').eq('active', true);
       if (allActiveDbProducts.error != null) {
         log.error(`Error fetching products from database`, { error: allActiveDbProducts.error, requestId: requestId });
-        throw new Error("Error fetching products from database.")
+        throw new Error('Error fetching products from database.');
       }
 
       for (const dbProduct of allActiveDbProducts.data) {
         // check if the dbProduct exists in Stripe
         if (allStripeProducts.data.find(p => p.id == dbProduct.id) == null) {
-          log.info(`Updating product ${dbProduct.id}`, { requestId: requestId, product: dbProduct.id});
+          log.info(`Updating product ${dbProduct.id}`, { requestId: requestId, product: dbProduct.id });
           // product does not exist, delete it
-          const updateRes = await supabase.from('products').update({active: false}).eq('id', dbProduct.id);
+
+          const updateRes = await supabase.from('products').update({ active: false }).eq('id', dbProduct.id);
+
           if (updateRes.error != null) {
             log.error(`Error updating product.`, {
               productId: dbProduct.id,
               error: updateRes.error,
               statusText: updateRes.statusText,
-              requestId: requestId,
+              requestId: requestId
             });
-            throw new Error("Error updating product.");
+            throw new Error('Error updating product.');
+          }
+
+          if (updateRes.count == 0) {
+            log.error(`No rows updated.`, { requestId: requestId, productId: dbProduct.id });
           }
 
           /*
@@ -90,6 +99,6 @@ export async function POST(req: Request) {
     }
   }
 
-  throw new Error("Unknown action.");
+  throw new Error('Unknown action.');
 
 }
