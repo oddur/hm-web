@@ -26,7 +26,7 @@ export async function POST(req: Request) {
       const listAllProducts = await stripe.products.list();
       if (listAllProducts.lastResponse.statusCode != 200) {
         log.error(`Error fetching products from Stripe.`, { statusCode: listAllProducts.lastResponse.statusCode, requestId: requestId });
-        return;
+        throw new Error("Error fetching products from Stripe.");
       }
 
       // iterate over the product
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
       const dbProducts = await supabase.from('products').select('*');
       if (dbProducts.error != null) {
         log.error(`Error fetching products from database`, { error: dbProducts.error, requestId: requestId });
-        return;
+        throw new Error("Error fetching products from database.")
       }
 
       for (const dbProduct of dbProducts.data) {
@@ -48,6 +48,19 @@ export async function POST(req: Request) {
         if (listAllProducts.data.find(p => p.id == dbProduct.id) == null) {
           log.info(`Deleting product ${dbProduct.id}`, { requestId: requestId, product: dbProduct.id});
           // product does not exist, delete it
+
+          const prices_deletion = await supabase.from('prices').delete().eq('product_id', dbProduct.id);
+          if (prices_deletion.error != null) {
+            log.error(`Error deleting prices.`, {
+              productId: dbProduct.id,
+              error: prices_deletion.error,
+              statusText: prices_deletion.statusText,
+              requestId: requestId,
+            });
+            throw new Error("Error deleting prices.");
+
+          }
+
           const deletion = await supabase.from('products').delete().eq('id', dbProduct.id);
           if (deletion.error != null) {
             log.error(`Error deleting product.`, {
@@ -56,6 +69,7 @@ export async function POST(req: Request) {
               statusText: deletion.statusText,
               requestId: requestId,
             });
+            throw new Error("Error deleting product.");
           }
           products_deletes++;
         }
@@ -64,6 +78,6 @@ export async function POST(req: Request) {
     }
   }
 
-  return new Response(JSON.stringify({ 'error': 'unknown action', requestId }), { status: 500 });
+  throw new Error("Unknown action.");
 
 }
