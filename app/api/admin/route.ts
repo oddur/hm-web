@@ -66,6 +66,7 @@ export async function POST(req: Request) {
           if (updateRes.count == 0) {
             log.error(`No rows updated.`, { requestId: requestId, productId: dbProduct.id });
           }
+          log.info(`Updated product ${dbProduct.id}`, { requestId: requestId, product: dbProduct.id, rows_updated: updateRes.count, status: updateRes.status })
 
           /*
           const prices_deletion = await supabase.from('prices').delete().eq('product_id', dbProduct.id);
