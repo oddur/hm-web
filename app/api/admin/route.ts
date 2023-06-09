@@ -45,7 +45,10 @@ export async function POST(req: Request) {
         if (listAllProducts.data.find(p => p.id == dbProduct.id) == null) {
           log.info(`Deleting product ${dbProduct.id}`);
           // product does not exist, delete it
-          await supabase.from('products').delete().eq('id', dbProduct.id);
+          const deletion = await supabase.from('products').delete().eq('id', dbProduct.id);
+          if (deletion.error != null) {
+            log.error(`Error deleting product.`, {productId: dbProduct.id, error: deletion.error})
+          }
           products_deletes++;
         }
       }
